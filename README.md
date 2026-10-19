@@ -68,24 +68,50 @@ Time budget: 120 minutes
 
 ## 🧪 Testing PawPal+
 
+Run the full suite from the project root (with your virtualenv active):
+
 ```bash
-# Run the full test suite:
-pytest
-
-# Run with coverage:
-pytest --cov
+python -m pytest
 ```
 
-Sample test output:
+Verbose names (useful when debugging a single failure):
 
-```
+```bash
 python -m pytest tests/test_pawpal.py -v
-
-tests/test_pawpal.py::test_mark_complete_changes_status PASSED
-tests/test_pawpal.py::test_add_task_increases_pet_task_count PASSED
-tests/test_pawpal.py::test_scheduler_uses_owner_get_all_tasks PASSED
-3 passed
 ```
+
+Optional coverage:
+
+```bash
+python -m pytest --cov=pawpal_system
+```
+
+### What the tests cover
+
+| Area | Examples |
+|------|----------|
+| **Core models** | `mark_complete`, `add_task`, multi-pet `get_all_tasks()` scheduling |
+| **Sorting** | `sort_by_time()` chronological order; tasks without preferred time sort last |
+| **Filtering** | `filter_tasks()` by pet name and completion status |
+| **Recurrence** | Daily (+1 day) and weekly (+7 days) spawn after `mark_task_complete`; one-off tasks do not spawn |
+| **Conflicts** | `detect_same_time_conflicts()` and conflict strings on `DailyPlan.notes` |
+| **Edge cases** | Empty schedule (no tasks), time budget deferral, future `due_date` excluded until due |
+
+### Sample test output
+
+```
+$ python -m pytest
+============================= test session starts ==============================
+platform darwin -- Python 3.13.15, pytest-9.1.1, pluggy-1.7.0
+rootdir: ai110-module2show-pawpal-starter
+collected 14 items
+
+tests/test_pawpal.py ..............                                      [100%]
+
+============================== 14 passed in 0.04s ==============================
+```
+
+**Confidence level:** ★★★★☆ (4/5) — core scheduling, algorithms, and recurrence paths are covered by automated tests; not yet stress-tested for large task lists or every recurrence rule variant.
 
 ## 📐 Smarter Scheduling
 

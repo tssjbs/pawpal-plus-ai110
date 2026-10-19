@@ -66,13 +66,11 @@ AI initially shaped **`schedule_day`** around a single **Pet** argument; the rub
 
 **a. What you tested**
 
-- What behaviors did you test?
-- Why were these tests important?
+The suite in `tests/test_pawpal.py` checks **happy paths** (add pet/task, schedule across two pets, sort by clock time, filter by pet/status, daily and weekly recurrence, preferred-time conflict warnings) and **edge cases** (owner with zero tasks → empty plan, 30-minute budget deferring a low-priority task, non-recurring completion with no spawn, tasks without preferred time sorting last, future `due_date` hidden until that day). These matter because they mirror real owner mistakes—double-booking the same hour, running out of time, and completing a routine that should reappear tomorrow.
 
 **b. Confidence**
 
-- How confident are you that your scheduler works correctly?
-- What edge cases would you test next if you had more time?
+**4/5 stars** for day-to-day use: `python -m pytest` gives 14 green tests on the logic layer. I would add tests next for unknown recurrence rules, many pets with mixed due dates, and Streamlit session behavior (UI is still manual).
 
 ---
 
