@@ -9,7 +9,7 @@ Coverage focus:
 
 from datetime import date, time, timedelta
 
-from pawpal_system import Owner, Pet, Scheduler, Task
+from pawpal_system import Owner, Pet, Scheduler, Task, load_from_json, save_to_json
 
 
 def test_mark_complete_changes_status():
@@ -302,3 +302,49 @@ def test_future_due_recurring_not_scheduled_until_due():
     assert plan_today.items == []
     plan_tomorrow = Scheduler().schedule_day(owner, tomorrow)
     assert len(plan_tomorrow.items) == 1
+
+
+def test_save_and_load_json_roundtrip(tmp_path):
+    owner = Owner(name="Persist", daily_minutes_available=90)
+    pet = Pet(name="Dot", species="dog", owner_id=owner.owner_id)
+    owner.add_pet(pet)
+    pet.add_task(
+        Task(
+            pet_id=pet.pet_id,
+            title="Walk",
+            category="walk",
+            duration_minutes=20,
+            priority=5,
+            preferred_time=time(8, 30),
+            is_recurring=True,
+            recurrence_rule="weekly",
+        )
+    )
+    path = tmp_path / "data.json"
+    save_to_json(owner, path)
+    loaded = load_from_json(path)
+    assert loaded.name == "Persist"
+    assert len(loaded.get_pets()) == 1
+    tasks = loaded.get_all_tasks()
+    assert len(tasks) == 1
+    assert tasks[0].title == "Walk"
+    assert tasks[0].priority == 5
+
+
+def test_next_available_slot_finds_gap():
+    owner = Owner(name="A", daily_minutes_available=120)
+    pet = Pet(name="P", species="cat", owner_id=owner.owner_id)
+    owner.add_pet(pet)
+    pet.add_task(
+        Task(
+            pet_id=pet.pet_id,
+            title="Block",
+            category="walk",
+            duration_minutes=30,
+            priority=3,
+        )
+    )
+    plan = Scheduler().schedule_day(owner, date.today(), day_start=time(8, 0))
+    slot = Scheduler().next_available_slot(plan, 20, day_start=time(8, 0), day_end=time(22, 0))
+    assert slot is not None
+    assert slot >= time(8, 30)

@@ -6,7 +6,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
-from typing import Optional
+from pathlib import Path
+from typing import Any, Optional
+import json
 import uuid
 
 
@@ -18,6 +20,122 @@ def _add_minutes(t: time, minutes: int) -> time:
     """Return a new clock time after adding minutes (same day wrap)."""
     base = datetime.combine(date.today(), t)
     return (base + timedelta(minutes=minutes)).time()
+
+
+def _time_to_json(value: Optional[time]) -> Optional[str]:
+    return value.isoformat(timespec="minutes") if value else None
+
+
+def _time_from_json(value: Optional[str]) -> Optional[time]:
+    if not value:
+        return None
+    return time.fromisoformat(value)
+
+
+def _date_to_json(value: Optional[date]) -> Optional[str]:
+    return value.isoformat() if value else None
+
+
+def _date_from_json(value: Optional[str]) -> Optional[date]:
+    if not value:
+        return None
+    return date.fromisoformat(value)
+
+
+def _task_to_dict(task: Task) -> dict[str, Any]:
+    """Convert a Task to a JSON-serializable dict (no custom types)."""
+    return {
+        "task_id": task.task_id,
+        "pet_id": task.pet_id,
+        "title": task.title,
+        "category": task.category,
+        "duration_minutes": task.duration_minutes,
+        "priority": task.priority,
+        "is_recurring": task.is_recurring,
+        "recurrence_rule": task.recurrence_rule,
+        "preferred_time": _time_to_json(task.preferred_time),
+        "due_date": _date_to_json(task.due_date),
+        "completed": task.completed,
+    }
+
+
+def _task_from_dict(data: dict[str, Any]) -> Task:
+    """Rebuild a Task from ``_task_to_dict`` output."""
+    return Task(
+        pet_id=data["pet_id"],
+        title=data["title"],
+        category=data["category"],
+        duration_minutes=int(data["duration_minutes"]),
+        priority=int(data["priority"]),
+        task_id=data.get("task_id", _new_id("task")),
+        is_recurring=bool(data.get("is_recurring", False)),
+        recurrence_rule=str(data.get("recurrence_rule", "daily")),
+        preferred_time=_time_from_json(data.get("preferred_time")),
+        due_date=_date_from_json(data.get("due_date")),
+        completed=bool(data.get("completed", False)),
+    )
+
+
+def _pet_to_dict(pet: Pet) -> dict[str, Any]:
+    return {
+        "pet_id": pet.pet_id,
+        "name": pet.name,
+        "species": pet.species,
+        "breed": pet.breed,
+        "age_years": pet.age_years,
+        "owner_id": pet.owner_id,
+        "tasks": [_task_to_dict(t) for t in pet.list_tasks()],
+    }
+
+
+def _owner_to_dict(owner: Owner) -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "owner_id": owner.owner_id,
+        "name": owner.name,
+        "daily_minutes_available": owner.daily_minutes_available,
+        "preferences": list(owner.preferences),
+        "pets": [_pet_to_dict(p) for p in owner.get_pets()],
+    }
+
+
+def save_to_json(owner: Owner, path: str | Path = "data.json") -> None:
+    """
+    Persist an Owner graph (pets + tasks) to a JSON file.
+
+    Uses plain dict conversion so ``json`` can serialize without marshmallow.
+    """
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    payload = _owner_to_dict(owner)
+    target.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def load_from_json(path: str | Path = "data.json") -> Owner:
+    """Load an Owner graph previously written by ``save_to_json``."""
+    target = Path(path)
+    raw = json.loads(target.read_text(encoding="utf-8"))
+    owner = Owner(
+        name=raw["name"],
+        daily_minutes_available=int(raw["daily_minutes_available"]),
+        owner_id=raw.get("owner_id", _new_id("owner")),
+        preferences=list(raw.get("preferences", [])),
+    )
+    for pet_data in raw.get("pets", []):
+        pet = Pet(
+            name=pet_data["name"],
+            species=pet_data["species"],
+            owner_id=owner.owner_id,
+            pet_id=pet_data.get("pet_id", _new_id("pet")),
+            breed=pet_data.get("breed", ""),
+            age_years=int(pet_data.get("age_years", 0)),
+        )
+        owner.add_pet(pet)
+        for task_data in pet_data.get("tasks", []):
+            task = _task_from_dict(task_data)
+            task.pet_id = pet.pet_id
+            pet.add_task(task)
+    return owner
 
 
 @dataclass
@@ -74,6 +192,15 @@ class Task:
         if self.due_date is None:
             return True
         return self.due_date <= plan_date
+
+    @staticmethod
+    def priority_label(priority: int) -> str:
+        """Map numeric priority to Low / Medium / High for UI and CLI."""
+        if priority >= 5:
+            return "High"
+        if priority >= 3:
+            return "Medium"
+        return "Low"
 
 
 @dataclass
@@ -227,6 +354,37 @@ class Scheduler:
             ),
         )
 
+    def next_available_slot(
+        self,
+        plan: DailyPlan,
+        duration_minutes: int,
+        *,
+        day_start: Optional[time] = None,
+        day_end: Optional[time] = None,
+    ) -> Optional[time]:
+        """
+        Find the earliest start time that fits ``duration_minutes`` in gaps on ``plan``.
+
+        Scans the scheduled timeline between ``day_start`` and ``day_end`` (defaults
+        08:00–22:00). Returns None if no gap is large enough.
+        """
+        if duration_minutes <= 0:
+            return None
+        start_bound = day_start or time(8, 0)
+        end_bound = day_end or time(22, 0)
+        items = sorted(plan.items, key=lambda i: i.start_time)
+        cursor = start_bound
+        for item in items:
+            if item.start_time > cursor:
+                gap_end = item.start_time
+                if _minutes_between(cursor, gap_end) >= duration_minutes:
+                    return cursor
+            if item.end_time > cursor:
+                cursor = item.end_time
+        if _minutes_between(cursor, end_bound) >= duration_minutes:
+            return cursor
+        return None
+
     def detect_same_time_conflicts(
         self, tasks: list[Task], owner: Owner
     ) -> list[str]:
@@ -353,3 +511,11 @@ class Scheduler:
             plan.notes.extend(conflicts)
         plan.notes.extend(self.explain_plan(plan))
         return plan
+
+
+def _minutes_between(start: time, end: time) -> int:
+    """Minutes from ``start`` to ``end`` on the same calendar day."""
+    base = date.today()
+    a = datetime.combine(base, start)
+    b = datetime.combine(base, end)
+    return max(0, int((b - a).total_seconds() // 60))
