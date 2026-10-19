@@ -32,7 +32,7 @@ After reviewing the skeleton against the UML, two small adjustments were made be
 1. **Explicit `DailyPlan` and `ScheduledItem` types** — The brainstorm centered on Owner, Pet, Task, and Scheduler; adding plan/line-item types avoids passing loose tuples and gives `detect_conflicts` and `explain_plan` a clear structure to work on in Phase 2.
 2. **`Task.pet_id` enforced in `Pet.add_task`** — If a task is added with a mismatched `pet_id`, the pet updates it so tasks cannot accidentally float between pets.
 
-No methods were implemented yet; Scheduler methods raise `NotImplementedError` until scheduling logic is built in later phases.
+The final architecture is captured in **`diagrams/uml_final.mmd`** (updated from the Phase 1 draft to include `get_all_tasks`, `filter_tasks`, recurrence helpers, and the owner-scoped `schedule_day` signature).
 
 ---
 
@@ -54,11 +54,18 @@ For **conflict detection**, PawPal+ uses two lightweight checks instead of a ful
 
 **a. How you used AI**
 
-During Phase 2, AI (Cursor) implemented the class bodies, **`get_all_tasks()`**, and a **`schedule_day(owner, …)`** entry point that reads all pets through the owner. Helpful prompts included wiring multi-pet scheduling and formatting **`main.py`** output as readable lines instead of raw objects.
+AI (Cursor) helped across phases: UML and skeletons (Phase 1), implementing **`pawpal_system.py`** and **`main.py`** (Phase 2), Streamlit **`st.session_state`** wiring (Phase 3), algorithm methods and pytest cases (Phases 4–5), and final README/UML/UI polish (Phase 6). The most effective features were **multi-file edits** (logic + tests together), **terminal-backed verification** (`pytest`, `main.py`), and **focused prompts** with files attached (“use `Owner.get_all_tasks()` only”, “warn don’t crash on conflicts”).
 
 **b. Judgment and verification**
 
-AI initially shaped **`schedule_day`** around a single **Pet** argument; the rubric requires the scheduler to use **`Owner.get_all_tasks()`**, so that signature was changed to **`schedule_day(owner, plan_date)`** only. Verification: **`python main.py`** showed both Biscuit and Mochi on one schedule, and **`python -m pytest`** (three tests) passed.
+AI initially shaped **`schedule_day`** around a single **Pet** argument; the rubric requires the scheduler to use **`Owner.get_all_tasks()`**, so that signature was changed to **`schedule_day(owner, plan_date)`** only. Another suggestion was a heavier interval-merge conflict engine; I kept **exact preferred-time** and **adjacent-slot** checks for readability and matched them with 14 targeted tests. Verification: **`python main.py`**, **`streamlit run app.py`**, and **`python -m pytest`** after each phase.
+
+**c. AI strategy (Phase 6)**
+
+- **Most effective tools:** codebase search, parallel file reads, and running pytest in the integrated terminal so AI could fix failures in the same turn.
+- **Rejected / modified suggestion:** a Streamlit-only task store separate from **`Owner`** — rejected to keep a single source of truth in **`pawpal_system.py`**.
+- **Separate chat sessions per phase:** planning (UML), implementation, algorithms, testing, and polish stayed scoped; fewer mixed context bugs and cleaner commit boundaries.
+- **Lead architect role:** AI drafts quickly, but I owned requirements (multi-pet entry point, warning-not-crash conflicts, recurrence rules), chose tradeoffs in **`reflection.md` §2b**, and only merged changes after CLI/tests passed.
 
 ---
 
@@ -78,12 +85,12 @@ The suite in `tests/test_pawpal.py` checks **happy paths** (add pet/task, schedu
 
 **a. What went well**
 
-- What part of this project are you most satisfied with?
+The split between **`pawpal_system.py`** (pure logic) and **`app.py`** (presentation) made Phase 4 algorithms testable without touching Streamlit. Surfacing **`detect_same_time_conflicts`** in the UI as an upfront **`st.warning`** gives owners actionable feedback before they generate a plan.
 
 **b. What you would improve**
 
-- If you had another iteration, what would you improve or redesign?
+Next iteration: edit/delete tasks in the UI, persist data to a file or database, and stretch tests to cover unknown recurrence rules and larger schedules. I would also export **`uml_final.mmd`** to PNG in CI for the README.
 
 **c. Key takeaway**
 
-- What is one important thing you learned about designing systems or working with AI on this project?
+Powerful AI assistants speed up implementation, but **design contracts** (who owns tasks — Owner vs Pet, what “conflict” means, how recurrence spawns) must stay human-owned. Short verification loops (pytest + one CLI script) are the difference between demo-ware and a system you can explain to a grader or teammate.
