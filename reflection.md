@@ -40,13 +40,11 @@ No methods were implemented yet; Scheduler methods raise `NotImplementedError` u
 
 **a. Constraints and priorities**
 
-- What constraints does your scheduler consider (for example: time, priority, preferences)?
-- How did you decide which constraints mattered most?
+The scheduler uses **`Owner.daily_minutes_available`** as a hard cap, **`Task.priority`** (higher number first), and optional **`preferred_time`** as a tie-breaker when sorting. It skips tasks already marked **`completed`**. Priority mattered most because meds and feeding should win over lower-priority enrichment when time is tight; the time budget is the second gate so the plan stays realistic for a busy owner.
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+When total task duration exceeds the budget, lower-priority tasks move to **`deferred_tasks`** even if they have an early preferred time. That tradeoff is reasonable here because the scenario asks for a feasible daily plan, not an impossible full wish list—the owner sees what fits today and what to roll forward.
 
 ---
 
@@ -54,13 +52,11 @@ No methods were implemented yet; Scheduler methods raise `NotImplementedError` u
 
 **a. How you used AI**
 
-- How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
-- What kinds of prompts or questions were most helpful?
+During Phase 2, AI (Cursor) implemented the class bodies, **`get_all_tasks()`**, and a **`schedule_day(owner, …)`** entry point that reads all pets through the owner. Helpful prompts included wiring multi-pet scheduling and formatting **`main.py`** output as readable lines instead of raw objects.
 
 **b. Judgment and verification**
 
-- Describe one moment where you did not accept an AI suggestion as-is.
-- How did you evaluate or verify what the AI suggested?
+AI initially shaped **`schedule_day`** around a single **Pet** argument; the rubric requires the scheduler to use **`Owner.get_all_tasks()`**, so that signature was changed to **`schedule_day(owner, plan_date)`** only. Verification: **`python main.py`** showed both Biscuit and Mochi on one schedule, and **`python -m pytest`** (three tests) passed.
 
 ---
 

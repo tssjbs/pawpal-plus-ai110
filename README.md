@@ -12,6 +12,17 @@ A busy pet owner needs help staying consistent with pet care. They want an assis
 
 Your job is to design the system first (UML), then implement the logic in Python, then connect it to the Streamlit UI.
 
+## Implementation summary (Phase 2)
+
+The backend lives in `pawpal_system.py`:
+
+- **Owner** — stores `daily_minutes_available`, owns **Pet** instances, and exposes **`get_all_tasks()`** so the scheduler sees every pet's tasks.
+- **Pet** — profile fields plus **`add_task`** / **`list_tasks`**.
+- **Task** — description (`title`), duration, priority, optional **`preferred_time`**, recurrence flags, and **`completed`** with **`mark_complete()`**.
+- **Scheduler** — pulls tasks only through **`owner.get_all_tasks()`**, sorts by priority, fits tasks into the owner's time budget, assigns sequential time slots, and returns a **DailyPlan** with deferred tasks and notes.
+
+Run the CLI demo: `python main.py` (see sample output below). Tests: `python -m pytest`.
+
 ## What you will build
 
 Your final app should:
@@ -47,11 +58,12 @@ pip install -r requirements.txt
 Paste a sample of your app's CLI or Streamlit output here so a reader can see what a generated plan looks like:
 
 ```
-# e.g.:
-# Daily plan for Biscuit (Golden Retriever):
-#   08:00 — Morning walk (30 min) [priority: high]
-#   09:00 — Feeding (10 min) [priority: high]
-#   ...
+Today's Schedule — Jordan Lee (2026-10-18)
+Time budget: 120 minutes
+========================================================
+  08:00–08:10  Mochi: Medication (10 min, priority 5)
+  08:10–08:40  Biscuit: Morning walk (30 min, priority 3)
+  08:40–08:55  Biscuit: Evening feeding (15 min, priority 3)
 ```
 
 ## 🧪 Testing PawPal+
@@ -67,7 +79,12 @@ pytest --cov
 Sample test output:
 
 ```
-# Paste your pytest output here
+python -m pytest tests/test_pawpal.py -v
+
+tests/test_pawpal.py::test_mark_complete_changes_status PASSED
+tests/test_pawpal.py::test_add_task_increases_pet_task_count PASSED
+tests/test_pawpal.py::test_scheduler_uses_owner_get_all_tasks PASSED
+3 passed
 ```
 
 ## 📐 Smarter Scheduling
