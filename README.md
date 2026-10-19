@@ -89,14 +89,14 @@ tests/test_pawpal.py::test_scheduler_uses_owner_get_all_tasks PASSED
 
 ## 📐 Smarter Scheduling
 
-> Fill in once you've implemented scheduling logic.
-
 | Feature | Method(s) | Notes |
 |---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+| Task sorting by clock time | `Scheduler.sort_by_time()` | Sorts by `preferred_time` (earliest first); tasks without a preferred time go last. Used in `main.py` to print tasks in time order. |
+| Task sorting for the plan | `Scheduler.sort_by_priority()` | Still drives `schedule_day`: higher `priority` first, then preferred time. |
+| Filtering | `Owner.filter_tasks(pet_name=…, completed=…)` | Case-insensitive pet name; optional completion filter. |
+| Preferred-time conflicts | `Scheduler.detect_same_time_conflicts()` | Warning strings when two+ pending tasks share the same preferred HH:MM (does not stop scheduling). |
+| Schedule slot conflicts | `Scheduler.detect_conflicts()` | Overlapping or identical start times on generated `DailyPlan` items. |
+| Recurring tasks | `Task.create_next_occurrence()`, `Pet.mark_task_complete()` | Completing a daily/weekly recurring task marks it done and adds the next instance (`due_date` +1 or +7 days via `timedelta`). |
 
 ## 📸 Demo Walkthrough
 

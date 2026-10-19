@@ -33,11 +33,47 @@ class Task:
     is_recurring: bool = False
     recurrence_rule: str = "daily"
     preferred_time: Optional[time] = None
+    due_date: Optional[date] = None
     completed: bool = False
 
     def mark_complete(self) -> None:
         """Mark this task as completed for the current cycle."""
         self.completed = True
+
+    def create_next_occurrence(self, from_date: date) -> Optional[Task]:
+        """
+        Build a fresh Task for the next recurrence after ``from_date``.
+
+        Daily tasks due the next calendar day; weekly tasks due seven days later.
+        Returns None when the task is not recurring or the rule is unknown.
+        """
+        if not self.is_recurring:
+            return None
+        rule = self.recurrence_rule.strip().lower()
+        if rule == "daily":
+            next_due = from_date + timedelta(days=1)
+        elif rule == "weekly":
+            next_due = from_date + timedelta(days=7)
+        else:
+            return None
+        return Task(
+            pet_id=self.pet_id,
+            title=self.title,
+            category=self.category,
+            duration_minutes=self.duration_minutes,
+            priority=self.priority,
+            is_recurring=True,
+            recurrence_rule=self.recurrence_rule,
+            preferred_time=self.preferred_time,
+            due_date=next_due,
+            completed=False,
+        )
+
+    def is_due_on(self, plan_date: date) -> bool:
+        """True when the task should appear on ``plan_date`` (no due date = always)."""
+        if self.due_date is None:
+            return True
+        return self.due_date <= plan_date
 
 
 @dataclass
@@ -62,6 +98,26 @@ class Pet:
     def list_tasks(self) -> list[Task]:
         """Return a copy of this pet's tasks."""
         return list(self._tasks)
+
+    def mark_task_complete(
+        self, task_id: str, reference_date: Optional[date] = None
+    ) -> Optional[Task]:
+        """
+        Mark a task complete and, if recurring, append the next occurrence.
+
+        Returns the newly created Task when recurrence spawns one; otherwise None.
+        """
+        ref = reference_date or date.today()
+        for task in self._tasks:
+            if task.task_id != task_id:
+                continue
+            task.mark_complete()
+            nxt = task.create_next_occurrence(ref)
+            if nxt is not None:
+                self.add_task(nxt)
+                return nxt
+            return None
+        return None
 
 
 @dataclass
@@ -98,6 +154,28 @@ class Owner:
                 return pet.name
         return pet_id
 
+    def filter_tasks(
+        self,
+        *,
+        pet_name: Optional[str] = None,
+        completed: Optional[bool] = None,
+    ) -> list[Task]:
+        """
+        Return tasks matching optional pet name and/or completion status.
+
+        Pet name comparison is case-insensitive. Omit a filter to skip it.
+        """
+        tasks = self.get_all_tasks()
+        if completed is not None:
+            tasks = [t for t in tasks if t.completed == completed]
+        if pet_name is not None:
+            target = pet_name.strip().lower()
+            pet_ids = {
+                p.pet_id for p in self._pets if p.name.strip().lower() == target
+            }
+            tasks = [t for t in tasks if t.pet_id in pet_ids]
+        return tasks
+
 
 @dataclass
 class ScheduledItem:
@@ -123,6 +201,21 @@ class DailyPlan:
 class Scheduler:
     """Organizes tasks from an Owner across pets into a daily plan."""
 
+    def sort_by_time(self, tasks: list[Task]) -> list[Task]:
+        """
+        Sort tasks by ``preferred_time`` (earliest first, HH:MM on the clock).
+
+        Tasks without a preferred time are listed after those with one.
+        """
+        return sorted(
+            tasks,
+            key=lambda t: (
+                t.preferred_time is None,
+                t.preferred_time or time(23, 59),
+                t.title.lower(),
+            ),
+        )
+
     def sort_by_priority(self, tasks: list[Task]) -> list[Task]:
         """Sort by priority (high first), then earlier preferred time."""
         return sorted(
@@ -133,6 +226,32 @@ class Scheduler:
                 t.title,
             ),
         )
+
+    def detect_same_time_conflicts(
+        self, tasks: list[Task], owner: Owner
+    ) -> list[str]:
+        """
+        Lightweight conflict check: warn when multiple tasks share one preferred time.
+
+        Does not crash or block scheduling; returns human-readable warning strings.
+        """
+        by_slot: dict[time, list[Task]] = {}
+        for task in tasks:
+            if task.completed or task.preferred_time is None:
+                continue
+            by_slot.setdefault(task.preferred_time, []).append(task)
+        warnings: list[str] = []
+        for slot, group in by_slot.items():
+            if len(group) < 2:
+                continue
+            labels = [
+                f"{owner.pet_name_for(t.pet_id)}: {t.title}" for t in group
+            ]
+            warnings.append(
+                f"Preferred-time conflict at {slot.strftime('%H:%M')} — "
+                + "; ".join(labels)
+            )
+        return warnings
 
     def apply_time_budget(self, tasks: list[Task], minutes: int) -> tuple[list[Task], list[Task]]:
         """Split tasks into those that fit the budget and those deferred."""
@@ -148,15 +267,26 @@ class Scheduler:
         return chosen, deferred
 
     def detect_conflicts(self, plan: DailyPlan) -> list[str]:
-        """Report overlapping time slots in the plan."""
+        """
+        Report overlapping scheduled slots in a built plan.
+
+        Compares exact start/end clock times only (not partial overlaps with
+        different durations beyond adjacent items).
+        """
         conflicts: list[str] = []
         items = sorted(plan.items, key=lambda i: i.start_time)
         for i in range(len(items) - 1):
             cur, nxt = items[i], items[i + 1]
             if cur.end_time > nxt.start_time:
                 conflicts.append(
-                    f"Overlap: '{cur.task.title}' ends {cur.end_time.strftime('%H:%M')} "
-                    f"but '{nxt.task.title}' starts {nxt.start_time.strftime('%H:%M')}"
+                    f"Schedule overlap: '{cur.task.title}' ends "
+                    f"{cur.end_time.strftime('%H:%M')} but '{nxt.task.title}' "
+                    f"starts {nxt.start_time.strftime('%H:%M')}"
+                )
+            elif cur.start_time == nxt.start_time:
+                conflicts.append(
+                    f"Same start time {cur.start_time.strftime('%H:%M')}: "
+                    f"'{cur.task.title}' and '{nxt.task.title}'"
                 )
         return conflicts
 
@@ -181,7 +311,12 @@ class Scheduler:
     ) -> DailyPlan:
         """Build today's plan from all pets' tasks via Owner.get_all_tasks()."""
         start = day_start or time(8, 0)
-        pending = [t for t in owner.get_all_tasks() if not t.completed]
+        pending = [
+            t
+            for t in owner.get_all_tasks()
+            if not t.completed and t.is_due_on(plan_date)
+        ]
+        preferred_warnings = self.detect_same_time_conflicts(pending, owner)
         ordered = self.sort_by_priority(pending)
         chosen, deferred = self.apply_time_budget(
             ordered, owner.daily_minutes_available
@@ -211,6 +346,8 @@ class Scheduler:
             deferred_tasks=deferred,
             notes=[],
         )
+        if preferred_warnings:
+            plan.notes.extend(preferred_warnings)
         conflicts = self.detect_conflicts(plan)
         if conflicts:
             plan.notes.extend(conflicts)

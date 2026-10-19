@@ -1,4 +1,4 @@
-"""CLI demo for PawPal+ — verify logic before Streamlit."""
+"""CLI demo for PawPal+ — sorting, filtering, conflicts, and recurrence."""
 
 from datetime import date, time
 
@@ -12,6 +12,13 @@ def format_schedule(owner: Owner, plan) -> str:
         f"Time budget: {owner.daily_minutes_available} minutes",
         "=" * 56,
     ]
+    if plan.notes:
+        lines.append("Notes / warnings:")
+        for note in plan.notes:
+            if "deferred" in note.lower() or "Priority" in note:
+                continue
+            lines.append(f"  ⚠ {note}")
+        lines.append("-" * 56)
     if not plan.items:
         lines.append("  (no tasks scheduled)")
     for item in plan.items:
@@ -38,16 +45,7 @@ def main() -> None:
     owner.add_pet(biscuit)
     owner.add_pet(mochi)
 
-    biscuit.add_task(
-        Task(
-            pet_id=biscuit.pet_id,
-            title="Morning walk",
-            category="walk",
-            duration_minutes=30,
-            priority=3,
-            preferred_time=time(8, 0),
-        )
-    )
+    # Tasks added out of preferred-time order on purpose.
     biscuit.add_task(
         Task(
             pet_id=biscuit.pet_id,
@@ -68,10 +66,64 @@ def main() -> None:
             preferred_time=time(9, 0),
         )
     )
+    biscuit.add_task(
+        Task(
+            pet_id=biscuit.pet_id,
+            title="Morning walk",
+            category="walk",
+            duration_minutes=30,
+            priority=3,
+            preferred_time=time(8, 0),
+        )
+    )
+    # Same preferred time — conflict detection should warn.
+    mochi.add_task(
+        Task(
+            pet_id=mochi.pet_id,
+            title="Morning play",
+            category="enrichment",
+            duration_minutes=15,
+            priority=2,
+            preferred_time=time(9, 0),
+        )
+    )
+    daily_feed = Task(
+        pet_id=biscuit.pet_id,
+        title="Daily breakfast",
+        category="feeding",
+        duration_minutes=10,
+        priority=4,
+        preferred_time=time(7, 30),
+        is_recurring=True,
+        recurrence_rule="daily",
+    )
+    biscuit.add_task(daily_feed)
 
     scheduler = Scheduler()
+    all_tasks = owner.get_all_tasks()
+
+    print("=== Sort by preferred time (CLI) ===")
+    for t in scheduler.sort_by_time(all_tasks):
+        pref = t.preferred_time.strftime("%H:%M") if t.preferred_time else "—"
+        print(f"  {pref}  {owner.pet_name_for(t.pet_id)}: {t.title}")
+
+    print("\n=== Filter: Biscuit, not completed ===")
+    for t in owner.filter_tasks(pet_name="Biscuit", completed=False):
+        print(f"  • {t.title}")
+
+    print("\n=== Generate schedule ===")
     plan = scheduler.schedule_day(owner, date.today())
     print(format_schedule(owner, plan))
+
+    print("\n=== Recurring: complete daily breakfast ===")
+    before = len(biscuit.list_tasks())
+    spawned = biscuit.mark_task_complete(daily_feed.task_id, date.today())
+    after = len(biscuit.list_tasks())
+    print(f"  Tasks before: {before}, after: {after}")
+    if spawned:
+        print(
+            f"  Next occurrence: {spawned.title} due {spawned.due_date.isoformat()}"
+        )
 
 
 if __name__ == "__main__":

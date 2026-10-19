@@ -46,6 +46,8 @@ The scheduler uses **`Owner.daily_minutes_available`** as a hard cap, **`Task.pr
 
 When total task duration exceeds the budget, lower-priority tasks move to **`deferred_tasks`** even if they have an early preferred time. That tradeoff is reasonable here because the scenario asks for a feasible daily plan, not an impossible full wish list—the owner sees what fits today and what to roll forward.
 
+For **conflict detection**, PawPal+ uses two lightweight checks instead of a full interval-timeline solver. **`detect_same_time_conflicts`** only warns when two *pending* tasks share the exact same **`preferred_time`** (same HH:MM), and **`detect_conflicts`** on the built plan flags adjacent slots that overlap or share the same **start** time. We do **not** model “busy blocks” where a long task would collide with another task that starts mid-duration unless the sequential schedule places them that way. That keeps the code readable for a class project, but it would miss subtle overlaps if an owner manually pinned many tasks to overlapping windows; a production app might merge intervals or use minute-granularity bitmaps.
+
 ---
 
 ## 3. AI Collaboration
