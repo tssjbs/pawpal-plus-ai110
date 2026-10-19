@@ -24,18 +24,14 @@ Tasks store `time` and `date` objects. The agent used **explicit dict helpers** 
 
 **Task:** When a weekly task is marked complete, create the next occurrence with the correct `due_date`.
 
-| | **Model A (inline spawn in `mark_complete`)** | **Model B (separate `RecurrenceEngine` class)** |
-|---|-----------------------------------------------|--------------------------------------------------|
-| **Tool** | General coding assistant pattern | Same prompt, architecture-heavy suggestion |
-| **Useful** | Minimal change: `create_next_occurrence` on `Task`, called from `Pet.mark_task_complete`. | Clear separation if many rules (monthly, custom cron). |
-| **Flawed** | Recurrence rules live on `Task` only; harder to unit-test all rules in one place. | Extra class and wiring for only daily/weekly in Module 2 scope. |
-| **Decision** | **Kept Model A** — matches rubric, 14+ tests, readable for graders. Revisit Model B if adding monthly or holiday skips. |
+| | **Strategy 1 — Cursor Composer (build prompt)** | **Strategy 2 — Architecture-only prompt (second chat)** |
+|---|---------------------------------------------------|-----------------------------------------------------------|
+| **Model / tool** | Cursor Composer (agent mode, repo context) | Same project, new chat: “Design a `RecurrenceEngine` service class” (simulates a second model focused on patterns) |
+| **Useful output** | `Task.create_next_occurrence()` + `Pet.mark_task_complete()` with `timedelta` (+1 / +7 days), wired to pytest. | Clear boundary for future rules (monthly, holidays) and test doubles. |
+| **Problems** | Recurrence logic stays on `Task`; could grow large. | Overkill for two rules; extra files and indirection for a 20-point scope. |
+| **Final decision** | **Shipped Strategy 1** in `pawpal_system.py`; documented Strategy 2 in this file only. |
 
-*(Challenge 5)* If you run a second model yourself, paste its weekly-recurrence snippet below and note whether you kept or rejected it:
-
-```
-<!-- Your comparison notes -->
-```
+**Manual correction:** Ensured spawned tasks set `due_date` so `is_due_on()` excludes them until the next day (see `test_future_due_recurring_not_scheduled_until_due`).
 
 ---
 

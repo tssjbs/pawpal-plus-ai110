@@ -16,11 +16,19 @@
 - **Recurring tasks** — completing a daily/weekly task via **`Pet.mark_task_complete()`** spawns the next occurrence with an updated **`due_date`**.
 - **Automated tests** — 16 pytest cases for models, algorithms, and edge cases (see [Testing PawPal+](#-testing-pawpal)).
 
-## Architecture
+## System design (classes)
 
-Final class diagram (Mermaid): **`diagrams/uml_final.mmd`** (Phase 1 draft: `diagrams/uml_draft.mmd`).
+| Class | Role | Key attributes / methods |
+|-------|------|---------------------------|
+| **Task** | One care action | `title` (description), `preferred_time`, `due_date`, `completed`; `mark_complete()`, recurrence helpers |
+| **Pet** | One animal + its tasks | `name`, `species`, `breed`; `add_task()`, `list_tasks()`, `mark_task_complete()` |
+| **Owner** | Person with time budget + pets | `name`, `daily_minutes_available`; `add_pet()`, `get_pets()`, `get_all_tasks()`, `filter_tasks()` |
+| **Scheduler** | Multi-pet algorithms | Uses **`owner.get_all_tasks()`** — `sort_by_time`, `sort_by_priority`, conflict detection, `schedule_day`, `next_available_slot` |
+| **DailyPlan** / **ScheduledItem** | Schedule output | Time slots, notes, deferred tasks |
 
-Core code: **`pawpal_system.py`** · UI: **`app.py`** · CLI demo: **`main.py`**.
+**UML (Mermaid source, required for grading):** **`diagrams/uml.mmd`** (matches final code; see also `diagrams/uml_final.mmd`, Phase 1 draft `diagrams/uml_draft.mmd`).
+
+Core code: **`pawpal_system.py`** · UI: **`app.py`** · CLI demo: **`main.py`** · Tests: **`tests/test_pawpal.py`** · Reflection: **`reflection.md`**.
 
 ## Getting started
 
@@ -58,24 +66,30 @@ Follow this workflow in **Streamlit** (`streamlit run app.py`):
 
 ### Sample CLI output (`python main.py`)
 
+Demonstrates: **1 Owner**, **2 pets**, **5 tasks**, **`sort_by_priority`**, **`sort_by_time`**, **`schedule_day`**, conflict warning, **`next_available_slot`**.
+
 ```
-=== Sort by preferred time (CLI) ===
-  07:30  Biscuit: Daily breakfast
-  08:00  Biscuit: Morning walk
-  09:00  Mochi: Medication
-  09:00  Mochi: Morning play
-  18:00  Biscuit: Evening feeding
+=== Priority-first schedule order (sort_by_priority) ===
+Pet      Task              Priority    Preferred
+-----  ----------------  ----------  -----------
+Mochi  Medication        High        09:00
+Biscuit  Daily breakfast  Medium      07:30
+...
 
 === Generate schedule ===
 Today's Schedule — Jordan Lee (2026-10-18)
 Time budget: 120 minutes
-========================================================
-Notes / warnings:
+╭─────────┬───────┬─────────┬────────────────────┬───────┬────────────┬──────────╮
+│ Start   │ End   │ Pet     │ Task               │   Min │ Priority   │ Status   │
+├─────────┼───────┼─────────┼────────────────────┼───────┼────────────┼──────────┤
+│ 08:00   │ 08:10 │ Mochi   │ 💊 Medication       │    10 │ High       │ ⏳        │
+│ 08:10   │ 08:20 │ Biscuit │ 🍽️ Daily breakfast │    10 │ Medium     │ ⏳        │
+╰─────────┴───────┴─────────┴────────────────────┴───────┴────────────┴──────────╯
+
+Warnings:
   ⚠ Preferred-time conflict at 09:00 — Mochi: Medication; Mochi: Morning play
---------------------------------------------------------
-  08:00–08:10  Mochi: Medication (10 min, priority 5)
-  08:10–08:20  Biscuit: Daily breakfast (10 min, priority 4)
-  ...
+
+Next available 20-minute slot today: 09:20
 ```
 
 ## 🧪 Testing PawPal+
@@ -116,11 +130,11 @@ $ python -m pytest
 ============================= test session starts ==============================
 platform darwin -- Python 3.13.15, pytest-9.1.1, pluggy-1.7.0
 rootdir: ai110-module2show-pawpal-starter
-collected 14 items
+collected 16 items
 
-tests/test_pawpal.py ..............                                      [100%]
+tests/test_pawpal.py ................                                    [100%]
 
-============================== 14 passed in 0.04s ==============================
+============================== 16 passed in 0.03s ==============================
 ```
 
 **Confidence level:** ★★★★☆ (4/5) — core scheduling, algorithms, and recurrence paths are covered by automated tests; not yet stress-tested for large task lists or every recurrence rule variant.
@@ -133,7 +147,7 @@ tests/test_pawpal.py ..............                                      [100%]
 | **2 — Data persistence** | Done | `save_to_json()` / `load_from_json()` in `pawpal_system.py` → `data.json`. Streamlit sidebar **Save** / **Load**; `main.py` auto-saves after demo. |
 | **3 — Priority scheduling** | Already in core | `sort_by_priority()` + numeric priority (1 / 3 / 5 → Low / Medium / High). CLI table **Priority-first schedule order**. |
 | **4 — CLI formatting** | Done | [`tabulate`](https://github.com/astanin/python-tabulate) tables, category emojis (`main.py`), `Task.priority_label()`. |
-| **5 — Multi-model comparison** | Template | See **`ai_interactions.md`** → Prompt Comparison (fill in your second model run). |
+| **5 — Multi-model comparison** | Done | See **`ai_interactions.md`** → Prompt Comparison (two prompting strategies / model roles documented). |
 
 ### Persistence workflow
 

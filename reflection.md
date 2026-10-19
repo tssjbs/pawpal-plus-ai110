@@ -23,7 +23,7 @@ PawPal+ helps a busy owner stay consistent with pet care by tracking routines an
 
 Relationships: one Owner has many Pets; one Pet has many Tasks; Scheduler reads Owner constraints and Pet tasks and produces a DailyPlan composed of ScheduledItems.
 
-The Mermaid source for this design is saved as `diagrams/uml_draft.mmd`. Python skeletons live in `pawpal_system.py` (dataclasses for Task, Pet, Owner, DailyPlan, ScheduledItem; a regular class for Scheduler with method stubs).
+Phase 1 draft: `diagrams/uml_draft.mmd`. **Grading UML:** `diagrams/uml.mmd` (synced to final implementation). Extended diagram: `diagrams/uml_final.mmd`.
 
 **b. Design changes**
 
@@ -58,7 +58,7 @@ AI (Cursor) helped across phases: UML and skeletons (Phase 1), implementing **`p
 
 **b. Judgment and verification**
 
-AI initially shaped **`schedule_day`** around a single **Pet** argument; the rubric requires the scheduler to use **`Owner.get_all_tasks()`**, so that signature was changed to **`schedule_day(owner, plan_date)`** only. Another suggestion was a heavier interval-merge conflict engine; I kept **exact preferred-time** and **adjacent-slot** checks for readability and matched them with 14 targeted tests. Verification: **`python main.py`**, **`streamlit run app.py`**, and **`python -m pytest`** after each phase.
+AI initially shaped **`schedule_day`** around a single **Pet** argument; the rubric requires the scheduler to use **`Owner.get_all_tasks()`**, so that signature was changed to **`schedule_day(owner, plan_date)`** only. Another suggestion was a heavier interval-merge conflict engine; I kept **exact preferred-time** and **adjacent-slot** checks for readability and matched them with **16** targeted tests. Verification: **`python main.py`**, **`streamlit run app.py`**, and **`python -m pytest`** after each phase.
 
 **c. AI strategy (Phase 6)**
 
@@ -77,7 +77,7 @@ The suite in `tests/test_pawpal.py` checks **happy paths** (add pet/task, schedu
 
 **b. Confidence**
 
-**4/5 stars** for day-to-day use: `python -m pytest` gives 14 green tests on the logic layer. I would add tests next for unknown recurrence rules, many pets with mixed due dates, and Streamlit session behavior (UI is still manual).
+**4/5 stars** for day-to-day use: `python -m pytest` gives **16** green tests on the logic layer. I would add tests next for unknown recurrence rules, many pets with mixed due dates, and Streamlit session behavior (UI is still manual).
 
 ---
 

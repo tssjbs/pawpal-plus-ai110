@@ -48,6 +48,7 @@ classDiagram
         +detect_same_time_conflicts(tasks, owner) list~str~
         +apply_time_budget(tasks, minutes) tuple
         +detect_conflicts(plan) list~str~
+        +next_available_slot(plan, minutes) time
         +explain_plan(plan) list~str~
         +schedule_day(owner, plan_date) DailyPlan
     }
