@@ -1,4 +1,6 @@
-# PawPal+ (Module 2 Project)
+# PawPal+ (AI110 Module 2 — standalone project)
+
+> **Not Module 1:** This repo is **PawPal+** only. It is separate from the Game Glitch Investigator project (`ai110-module1show-gameglitchinvestigator-starter`). Different code, tests, and reflection.
 
 **PawPal+** is a Streamlit app plus Python logic layer that helps a busy pet owner plan daily care across one or more pets — with sorting, filtering, conflict warnings, and recurring routines.
 
@@ -12,7 +14,7 @@
 - **Filtering** — `Owner.filter_tasks(pet_name=…, completed=…)` in the Streamlit task browser.
 - **Conflict warnings** — `Scheduler.detect_same_time_conflicts()` alerts when two open tasks share the same preferred HH:MM; `detect_conflicts()` flags overlaps on the built timeline. Warnings appear in **`st.warning`** before and after generating a plan.
 - **Recurring tasks** — completing a daily/weekly task via **`Pet.mark_task_complete()`** spawns the next occurrence with an updated **`due_date`**.
-- **Automated tests** — 14 pytest cases for models, algorithms, and edge cases (see [Testing PawPal+](#-testing-pawpal)).
+- **Automated tests** — 16 pytest cases for models, algorithms, and edge cases (see [Testing PawPal+](#-testing-pawpal)).
 
 ## Architecture
 
